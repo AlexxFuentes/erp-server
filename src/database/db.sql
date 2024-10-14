@@ -1,20 +1,25 @@
 
+CREATE DATABASE SISTEMA_CONTABLE;
+
+USE SISTEMA_CONTABLE;
+
+-- Crear la tabla 'users'
 CREATE TABLE users (
-    id SERIAL PRIMARY KEY,
+    id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
     email VARCHAR(100) NOT NULL,
     password VARCHAR(255) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-)
+);
 
-
-CREATE TABLE Login_user (
-    id SERIAL PRIMARY KEY,
+-- Crear la tabla 'login_user'
+CREATE TABLE login_user (
+    id INT AUTO_INCREMENT PRIMARY KEY,
     intentos INT NOT NULL,
     bloqueado BOOLEAN NOT NULL,
     fk_user INT NOT NULL,
-    foreign key (fk_user) references users(id)
-)
+    FOREIGN KEY (fk_user) REFERENCES users(id)
+);
 
 
 INSERT INTO users (name, email, password) 
