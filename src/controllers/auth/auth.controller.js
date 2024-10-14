@@ -23,6 +23,9 @@ export const register = async (req, res) => {
             [name, email, passwordHash]
         );
 
+        // crear registros de tabla de intentos fallidos
+        await pool.query('INSERT INTO Login_user (intentos, bloqueado, fk_user) VALUES ($1, $2, $3)', [0, false, newUser.rows[0].id]);
+
         // Crear token de acceso
         const accessToken = await createAccessToken({
             id: newUser.rows[0].id,
@@ -57,6 +60,17 @@ export const login = async (req, res) => {
         // Verificar contraseña
         const validPassword = await bcrypt.compare(password, user.rows[0].password);
         if (!validPassword) {
+
+            // actualizar intentos fallidos
+
+            const user_res = await pool.query(`UPDATE Login_user A SET intentos = A.intentos + 1, 
+                bloqueado = CASE WHEN A.intentos >= 2 THEN TRUE ELSE A.bloqueado END
+                WHERE A.fk_user = $1 RETURNING *`, [user.rows[0].id]);
+
+            if (user_res.rows[0].bloqueado) {
+                return res.status(400).json({ message: 'Usuario bloqueado' });
+            }
+
             return res.status(400).json('Contraseña incorrecta');
         }
 

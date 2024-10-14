@@ -7,5 +7,15 @@ CREATE TABLE users (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 )
 
+
+CREATE TABLE Login_user (
+    id SERIAL PRIMARY KEY,
+    intentos INT NOT NULL,
+    bloqueado BOOLEAN NOT NULL,
+    fk_user INT NOT NULL,
+    foreign key (fk_user) references users(id)
+)
+
+
 INSERT INTO users (name, email, password) 
 VALUES ('Manuel', 'manual@gmail.com', 'admin123')	
