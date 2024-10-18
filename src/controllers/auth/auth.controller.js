@@ -6,34 +6,35 @@ import { pool } from '../../db.js';
 
 export const register = async (req, res) => {
     try {
-        const { name, email, password } = req.body
+        const { user, name, email, password } = req.body
 
         // Verificar si el usuario ya existe
-        const [user] = await pool.query(
+        const [user_find] = await pool.query(
             'SELECT * FROM users WHERE email = ?', 
             [email]
         );
 
-        if (user.length > 0) return res.status(400).json('El usuario ya existe');
+        if (user_find.length > 0) return res.status(400).json({ message: 'El usuario ya existe'});
+
+        // Verificar si el usuario ya existe
+        const [user_find2] = await pool.query(
+            'SELECT * FROM users WHERE usuario = ?', 
+            [user]
+        );
+
+        if (user_find2.length > 0) return res.status(400).json({ message: 'El nombre usuario ya existe'});
         
         // Encriptar contraseña
         const passwordHash = await bcrypt.hash(password, 10);
 
         // Guardar usuario en la base de datos
         const [result] = await pool.query(
-            'INSERT INTO users (name, email, password) VALUES (?, ?, ?)',
-            [name, email, passwordHash]
+            'INSERT INTO users (usuario, nombre, correo, password) VALUES (?, ?, ?, ?)',
+            [user, name, email, passwordHash]
         );
 
         // Obtener el ID del nuevo usuario
         const newUserId = result.insertId;
-
-        // crear registros de tabla de intentos fallidos
-        await pool.query(
-            'INSERT INTO Login_user (intentos, bloqueado, fk_user) VALUES (?, ?, ?)', 
-            [0, false, newUserId]
-        );
-
         // Hacer una consulta para obtener los datos insertados
         const [newUser] = await pool.query('SELECT * FROM users WHERE id = ?', [newUserId]);
 
@@ -52,7 +53,6 @@ export const register = async (req, res) => {
 
         // retornar datos del usuario registrado
         res.json(newUser);
-
     } catch (error) {
         res.status(500).json(error.message);
     }
@@ -68,7 +68,7 @@ export const login = async (req, res) => {
             [email]
         );
 
-        if (users.length === 0) return res.status(400).json('Usuario o contraseña incorrectos');
+        if (users.length === 0) return res.status(400).json({ message: 'Usuario o contraseña incorrectos'});
 
         const user = users[0]; // Acceder al primer usuario encontrado
         
@@ -78,25 +78,24 @@ export const login = async (req, res) => {
 
             // actualizar intentos fallidos
             await pool.query(
-                `UPDATE login_user A SET 
+                `UPDATE users A SET 
                     intentos = A.intentos + 1, 
-                    bloqueado = CASE WHEN A.intentos >= 3 THEN TRUE ELSE A.bloqueado END
-                WHERE A.fk_user = ?`,
+                    bloqueado = CASE WHEN A.bloqueado >= 3 THEN TRUE ELSE A.bloqueado END
+                WHERE A.id = ?`,
                 [user.id]
             );
 
             // Verificar si el usuario ha sido bloqueado
-            const [updatedLoginUser] = await pool.query('SELECT * FROM login_user WHERE fk_user = ?', [user.id]);
+            const [updatedLoginUser] = await pool.query('SELECT * FROM users WHERE id = ?', [user.id]);
             if (updatedLoginUser[0].bloqueado) {
                 return res.status(400).json({ message: 'Usuario bloqueado' });
             }
 
-            return res.status(400).json('Contraseña incorrecta');
+            return res.status(400).json({ message: 'Contraseña incorrecta' });
         }
 
         // verificar si el usuario ha sido bloqueado
-        const [userFind] = await pool.query('SELECT * FROM login_user WHERE fk_user = ?', user.id);
-        if (userFind[0].bloqueado) return res.status(400).json({ message: 'Usuario bloqueado' });
+        if (user.bloqueado) return res.status(400).json({ message: 'Usuario bloqueado' });
 
         // Crear token de acceso
         const accessToken = await createAccessToken({
@@ -113,7 +112,6 @@ export const login = async (req, res) => {
 
         // retornar datos del usuario logueado
         res.json(user);
-
     } catch (error) {
         res.status(500).json(error.message);
     }
@@ -123,7 +121,7 @@ export const verifyToken = async (req, res) => {
 
     const { token } = req.cookies;
 
-    if (!token) return res.status(401).json({ message: 'No token, acceso denegado!!' });
+    if (!token) return res.status(401).json({ message: 'Sin token, acceso denegado!!' });
 
     jwt.verify(token, TOKEN_SECRET, async (error, user) => {
 
@@ -135,7 +133,6 @@ export const verifyToken = async (req, res) => {
 
         return res.json(userFind[0]);
     });
-
 };
 
 export const logout = async (req, res) => {
