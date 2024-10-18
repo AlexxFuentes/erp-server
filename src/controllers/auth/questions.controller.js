@@ -85,7 +85,8 @@ export const deleteQuestion = async (req, res) => {
 */
 export const validateQuestions = async (req, res) => {
     try {
-        const { user, data } = req.body;
+        const { user } = req.params;
+        const { data } = req.body;
 
         // Verificar si el usuario existe
         const [users] = await pool.query(
